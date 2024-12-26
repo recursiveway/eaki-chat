@@ -1,44 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DndContext, useDraggable, useDroppable } from '@dnd-kit/core';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ImagePlus, Menu, X } from 'lucide-react';
 import { processMessage } from '@/app/actions';
-
-const DraggableItem = ({ id, title }) => {
-  const { attributes, listeners, setNodeRef, transform } = useDraggable({
-    id: id,
-    data: { title }
-  });
-
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    zIndex: 1
-  } : undefined;
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      <Card {...listeners} className="p-2 mb-2 bg-blue-100 cursor-move hover:bg-blue-200 transition-colors">
-        {title}
-      </Card>
-    </div>
-  );
-};
-
-const DroppableZone = ({ children }) => {
-  const { setNodeRef, isOver } = useDroppable({
-    id: 'tone-droppable'
-  });
-
-  return (
-    <div ref={setNodeRef} className={`p-4 border-2 border-dashed rounded ${isOver ? 'bg-blue-50 border-blue-300' : 'bg-gray-50'}`}>
-      {children}
-    </div>
-  );
-};
+import DraggableItem from './DraggableItem';
+import DroppableZone from './DroppableZone';
+import { useStytchUser } from '@stytch/react';
 
 const loadChats = () => {
   if (typeof window !== 'undefined') {
@@ -71,10 +42,23 @@ const ChatInterface = () => {
     available: ['friendly', 'professional']
   });
 
+  const topicInputRef = useRef();
+  const inputRef = useRef();
+
   useEffect(() => {
     localStorage.setItem('chatHistories', JSON.stringify(chatHistories));
     localStorage.setItem('topics', JSON.stringify(topics));
   }, [chatHistories, topics]);
+
+  const handleNewTopicChange = (e) => {
+    if (topicInputRef.current) {
+      topicInputRef.current.focus();
+    }
+
+    setNewTopic(e.target.value);
+
+    
+  };
 
   const handleSend = async () => {
     if ((!inputText.trim() && !selectedImage) || isLoading) return;
@@ -203,54 +187,65 @@ const ChatInterface = () => {
     </div>
   );
 
-  const InputArea = () => (
-    <div className="p-4 bg-white border-t">
-      {imagePreview && (
-        <div className="mb-2">
-          <img src={imagePreview} alt="Preview" className="max-h-32 rounded" />
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => {
-              setSelectedImage(null);
-              setImagePreview(null);
-            }}
-            className="mt-1"
-          >
-            Remove
-          </Button>
-        </div>
-      )}
-      <div className="flex gap-2 flex-col sm:flex-row">
-        <Input
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type your message..."
-          onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-          disabled={isLoading}
-          className="flex-1"
-        />
-        <div className="flex gap-2">
+  const InputArea = () => {
+  
+    useEffect(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, []); // Ensure this runs only once when the component mounts.
+  
+    return (
+      <div className="p-4 bg-white border-t">
+        {imagePreview && (
+          <div className="mb-2">
+            <img src={imagePreview} alt="Preview" className="max-h-32 rounded" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedImage(null);
+                setImagePreview(null);
+              }}
+              className="mt-1"
+            >
+              Remove
+            </Button>
+          </div>
+        )}
+        <div className="flex gap-2 flex-col sm:flex-row">
           <Input
-            type="file"
-            accept="image/*"
-            onChange={handleImageSelect}
-            className="hidden"
-            id="image-upload"
+            ref={inputRef}
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Type your message..."
+            onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            disabled={isLoading}
+            className="flex-1"
           />
-          <Button
-            variant="outline"
-            onClick={() => document.getElementById('image-upload')?.click()}
-          >
-            <ImagePlus className="h-5 w-5" />
-          </Button>
-          <Button onClick={handleSend} disabled={isLoading}>
-            {isLoading ? 'Sending...' : 'Send'}
-          </Button>
+          <div className="flex gap-2">
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="hidden"
+              id="image-upload"
+            />
+            <Button
+              variant="outline"
+              onClick={() => document.getElementById('image-upload')?.click()}
+            >
+              <ImagePlus className="h-5 w-5" />
+            </Button>
+            <Button onClick={handleSend} disabled={isLoading}>
+              {isLoading ? 'Sending...' : 'Send'}
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
+  
 
   const Sidebar = () => (
     <div className={`
@@ -267,8 +262,9 @@ const ChatInterface = () => {
       </div>
       <div className="mb-4">
         <Input
+          ref={topicInputRef}
           value={newTopic}
-          onChange={(e) => setNewTopic(e.target.value)}
+          onChange={handleNewTopicChange}
           placeholder="New Topic"
           className="mb-2"
         />
@@ -333,7 +329,6 @@ const ChatInterface = () => {
   return (
     <div className="flex items-center min-h-screen justify-center p-4">
       <div className="w-full max-w-6xl h-[700px] bg-white rounded-lg shadow-lg flex relative">
-        {/* Mobile Hamburger Menu */}
         <Button
           variant="ghost"
           size="sm"
@@ -345,7 +340,6 @@ const ChatInterface = () => {
 
         <Sidebar />
 
-        {/* Overlay for mobile sidebar */}
         {isSidebarOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
@@ -353,7 +347,6 @@ const ChatInterface = () => {
           />
         )}
 
-        {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
           <DndContext onDragEnd={handleDragEnd}>
             <ToneSelector />
